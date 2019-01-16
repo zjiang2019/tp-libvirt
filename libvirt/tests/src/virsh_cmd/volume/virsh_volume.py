@@ -425,13 +425,10 @@ def run(test, params, env):
     total_err_count = 0
     try:
         # Create a new pool
-        libv_pvt.pre_pool(pool_name=pool_name,
-                          pool_type=pool_type,
-                          pool_target=pool_target,
-                          emulated_image=emulated_image,
-                          image_size=emulated_image_size,
-                          source_name=source_name,
-                          source_path=source_path)
+        params.update({"pool_target": pool_target, "source_name": source_name,
+                       "source_path": source_path, "emulated_image": emulated_image})
+        params.pop("image_size")
+        libv_pvt.pre_pool(image_size=emulated_image_size, **params)
         for i in range(vol_number):
             volume_name = "%s_%d" % (vol_name, i)
             expected_vol['pool_name'] = pool_name
@@ -463,7 +460,11 @@ def run(test, params, env):
                 logging.debug("Volume XML for creation:\n%s", str(new_volxml))
                 virsh.vol_create(pool_name, new_volxml.xml, debug=True)
             else:
-                ip_addr = utlv.get_host_ipv4_addr()
+                gluster_server_ip = params.get("gluster_server_ip")
+                if gluster_server_ip:
+                    ip_addr = gluster_server_ip
+                else:
+                    ip_addr = utlv.get_host_ipv4_addr()
                 expected_vol['path'] = "gluster://%s/%s/%s" % (ip_addr,
                                                                source_name,
                                                                volume_name)
@@ -484,8 +485,7 @@ def run(test, params, env):
             if sec not in ori_secrets:
                 virsh.secret_undefine(sec)
         try:
-            libv_pvt.cleanup_pool(pool_name, pool_type, pool_target,
-                                  emulated_image, source_name=source_name)
+            libv_pvt.cleanup_pool(**params)
         except test.fail as detail:
             logging.error(str(detail))
         if multipathd_status:
